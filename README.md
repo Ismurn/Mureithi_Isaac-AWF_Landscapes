@@ -54,15 +54,13 @@ r
 renv::restore()
 ```
 
-Running the analysis
-
+**Running the analysis**
 Run scripts in numerical order:
-
-scripts/01_data_prep.R
-scripts/02_non_spatial_plots.R
-scripts/03_spatial_data_prep.R
-scripts/04_spatial_maps.R
-scripts/05_composite_figures.R
+- scripts/01_data_prep.R
+- scripts/02_non_spatial_plots.R
+- scripts/03_spatial_data_prep.R
+- scripts/04_spatial_maps.R
+- scripts/05_composite_figures.R
 
 **Acknowledgements**
 This work is supported by the Oppenheimer Programme in African Landscape Systems (OPALS), jointly hosted by the University of Exeter and the African Wildlife Foundation. Landscape attribute data were processed in Google Earth Engine.
