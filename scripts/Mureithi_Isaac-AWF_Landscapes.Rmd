@@ -1,0 +1,51 @@
+---
+title: "Mureithi_Isaac-AWF_Landscapes"
+author: "Isaac Nduta Mureithi"
+date: "2026-10-05"
+output: html_document
+---
+
+```{r}
+# Load libraries
+
+# The {"if (require("pacman")) install.packages("pacman")"} - for loading and installing packages in a single command -> only need to do this once
+
+if (!require("pacman")) install.packages("pacman")
+
+pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox)
+
+# DATA HANDLING#
+# tidyverse -> for data manipulation, cleaning, and visualisation in a cohesive framework
+# forcats -> for managing factors (categorical variables)
+# slider -> for rolling or sliding window calculations
+# zoo -> for working with ordered observations, especially time-series data, with irregular time steps
+# elevatr   → for downloading SRTM DEM tiles automatically
+# whitebox  → R bindings for WhiteboxTools hydrological processing
+
+# SPATIAL DATA & MAPPING#
+# sf -> for handling vector spatial data (points, lines, polygons)
+# terra -> for handling and processing raster data
+# tidyterra -> for using tidyverse tools on terra objects
+# tmap -> for creating thematic maps
+
+# VISUALISATION#
+# viridis -> for perceptually uniform color palettes
+# viridisLite -> same use as above though I shall use this for R^2 (Temporal Performance raster)
+# scales -> for controlling plot scale formatting (e.g., number and date labels)
+# hexbin -> for visualizing point density with hexagonal bins
+# ggh4x -> for advanced ggplot2 features = facetted_pos_scales
+# scico -> for scientific color maps
+# colorspace -> for a wide variety of perceptually uniform color palettes
+# ggrepel -> for preventing text labels from overlapping
+# patchwork -> for combining multiple plots into one figure
+# ggridges -> for creating ridge plots (joy plots)
+# truncnorm -> for generating random numbers from a truncated normal distribution
+# cowplot -> for arranging multiple ggplot objects and converting other plot types into ggplot-compatible objects 
+# ggplotify -> for converting non-ggplot objects (like base R plots or tmap grobs) into ggplot objects
+# png -> for basic reading and writing of PNG files into raw pixel arrays
+# magick -> for professional-grade image processing, editing, and format conversion
+# ggtext → enhanced text rendering in ggplot2 using Markdown/HTML (e.g., bold, italics, styled labels)
+
+# STATISTICAL ANALYSIS#
+#trend -> for analysing trends in time-series data = Theil-Sen slope
+```
