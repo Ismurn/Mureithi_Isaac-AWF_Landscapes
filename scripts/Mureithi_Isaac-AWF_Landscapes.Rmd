@@ -56,12 +56,8 @@ pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, 
 #trend -> for analysing trends in time-series data = Theil-Sen slope
 ```
 
-
-
-
+```{r}
 ## Data preparation
-
-```{r data-prep}
 dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
 dir.create("outputs/figures", showWarnings = FALSE, recursive = TRUE)
 dir.create("outputs/tables",  showWarnings = FALSE, recursive = TRUE)
@@ -103,9 +99,8 @@ awf %>%
 write_csv(awf, "data/processed/awf_landscapes_clean.csv")
 ```
 
+```{r}
 ## Shared theme and palette
-
-```{r theme}
 theme_awf <- function(base_size = 11) {
   theme_minimal(base_size = base_size) %+replace%
     theme(
@@ -131,9 +126,8 @@ col_contract  <- "#2E7D32"  # forest green: cropland contraction
 col_neutral   <- "grey70"
 ```
 
+```{r}
 ## Plot 1: Protection gap dumbbell
-
-```{r plot1, fig.width=10, fig.height=10}
 d1 <- awf %>% mutate(LabelShort = fct_reorder(LabelShort, ProtectionGap, .desc = FALSE))
 
 p1 <- ggplot(d1, aes(y = LabelShort)) +
@@ -156,9 +150,8 @@ ggsave("outputs/figures/01_protection_gap_dumbbell.png", p1,
 p1
 ```
 
+```{r}
 ## Plot 2: Cropland dynamics diverging bar
-
-```{r plot2, fig.width=10, fig.height=10}
 d2 <- awf %>%
   mutate(CropNet_kha = CropNet17_25_ha / 1000,
          LabelShort  = fct_reorder(LabelShort, CropNet_kha))
@@ -183,9 +176,8 @@ ggsave("outputs/figures/02_cropland_dynamics_bar.png", p2,
 p2
 ```
 
+```{r}
 ## Plot 3: Population-nature scatter
-
-```{r plot3, fig.width=10, fig.height=8}
 p3 <- ggplot(awf, aes(x = Natural25_pct, y = PopGrowth_pct)) +
   geom_vline(xintercept = median(awf$Natural25_pct, na.rm = TRUE),
              linetype = "dashed", colour = "grey55") +
@@ -211,9 +203,8 @@ ggsave("outputs/figures/03_population_nature_scatter.png", p3,
 p3
 ```
 
+```{r}
 ## Plot 4: Carbon stock x threat quadrant
-
-```{r plot4, fig.width=10, fig.height=8}
 med_x <- median(awf$CropPctChg17_25, na.rm = TRUE)
 med_y <- median(awf$AGB22_MgHa, na.rm = TRUE)
 
@@ -245,9 +236,8 @@ ggsave("outputs/figures/04_carbon_threat_quadrant.png", p4,
 p4
 ```
 
+```{r}
 ## Plot 5: Composite overview
-
-```{r plot5, fig.width=20, fig.height=16}
 p5 <- (p1 + p2) / (p3 + p4) +
   plot_annotation(
     title    = "AWF Priority Landscapes — Conservation Planning Overview",
