@@ -43,14 +43,17 @@ Figures and tables are written to outputs/figures/ and outputs/tables/ respectiv
 
 **Getting started**
 Clone this repository:
-
+```{r}
 bash
 git clone https://github.com/Ismurn/Mureithi_Isaac-AWF_Landscapes.git
+```
 
 Restore the R package environment:
-
+```{r}
 r
 renv::restore()
+```
+
 Running the analysis
 
 Run scripts in numerical order:
