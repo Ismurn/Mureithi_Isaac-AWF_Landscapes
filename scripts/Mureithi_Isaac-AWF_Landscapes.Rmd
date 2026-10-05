@@ -1,9 +1,14 @@
----
+﻿---
 title: "Mureithi_Isaac-AWF_Landscapes"
 author: "Isaac Nduta Mureithi"
 date: "2026-10-05"
 output: html_document
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.width = 10, fig.height = 8)
+knitr::opts_knit$set(root.dir = normalizePath(".."))  # project root
+```
 
 ```{r}
 # Load libraries
@@ -12,9 +17,10 @@ output: html_document
 
 if (!require("pacman")) install.packages("pacman")
 
-pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox)
+pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox, readxl)
 
 # DATA HANDLING#
+# readxl -> for reading the .xlsx landscape data
 # tidyverse -> for data manipulation, cleaning, and visualisation in a cohesive framework
 # forcats -> for managing factors (categorical variables)
 # slider -> for rolling or sliding window calculations
@@ -50,3 +56,209 @@ pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, 
 #trend -> for analysing trends in time-series data = Theil-Sen slope
 ```
 
+
+
+
+## Data preparation
+
+```{r data-prep}
+dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
+dir.create("outputs/figures", showWarnings = FALSE, recursive = TRUE)
+dir.create("outputs/tables",  showWarnings = FALSE, recursive = TRUE)
+
+awf_raw <- read_excel("data/raw/awf_landscapes_raw.xlsx", sheet = "AWF_Landscapes")
+
+awf <- awf_raw %>%
+  mutate(
+    Protected_pct     = parse_number(as.character(Protected_pct)),
+    PopGrowth_pct     = ((Pop50_SSP2 - Pop30_SSP2) / Pop30_SSP2) * 100,
+    PopDens30         = Pop30_SSP2 / Km_sq,
+    ProtectionGap     = Protected_pct - KBA_pct,
+    CropExpRate_ha_yr = CropExp17_25_ha / 8,
+    CropNetRate_ha_yr = CropNet17_25_ha / 8,
+    CropDirection     = case_when(CropNet17_25_ha > 0 ~ "Net expansion",
+                                  CropNet17_25_ha < 0 ~ "Net contraction",
+                                  TRUE                ~ "No change"),
+    AGB_class         = cut(AGB22_MgHa,
+                            breaks = quantile(AGB22_MgHa, c(0, 1/3, 2/3, 1), na.rm = TRUE),
+                            labels = c("Low", "Medium", "High"),
+                            include.lowest = TRUE),
+    LabelShort        = str_trunc(LandscapeName, 25, side = "right")
+  )
+
+awf %>%
+  summarise(
+    n_landscapes       = n(),
+    total_area_km2     = sum(Km_sq, na.rm = TRUE),
+    total_pop_2030     = sum(Pop30_SSP2, na.rm = TRUE),
+    mean_natural_pct   = mean(Natural25_pct, na.rm = TRUE),
+    mean_kba_pct       = mean(KBA_pct, na.rm = TRUE),
+    mean_protected_pct = mean(Protected_pct, na.rm = TRUE),
+    total_agb_Mt       = sum(AGB22_Mt, na.rm = TRUE),
+    net_crop_change_ha = sum(CropNet17_25_ha, na.rm = TRUE)
+  ) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "value") %>%
+  print()
+
+write_csv(awf, "data/processed/awf_landscapes_clean.csv")
+```
+
+## Shared theme and palette
+
+```{r theme}
+theme_awf <- function(base_size = 11) {
+  theme_minimal(base_size = base_size) %+replace%
+    theme(
+      text             = element_text(colour = "grey20"),
+      plot.title       = element_text(face = "bold", size = rel(1.2), hjust = 0,
+                                      margin = margin(b = 4)),
+      plot.subtitle    = element_text(colour = "grey40", size = rel(0.85), hjust = 0,
+                                      margin = margin(b = 8)),
+      plot.caption     = element_text(colour = "grey55", size = rel(0.65), hjust = 0,
+                                      margin = margin(t = 8)),
+      plot.title.position   = "plot",
+      plot.caption.position = "plot",
+      panel.grid.major = element_line(colour = "grey92"),
+      panel.grid.minor = element_blank(),
+      legend.position  = "top"
+    )
+}
+
+col_kba       <- "#2C7A7B"  # teal: biodiversity value
+col_protected <- "#C05621"  # burnt orange: protection coverage
+col_expand    <- "#B83A2E"  # red-brown: cropland expansion
+col_contract  <- "#2E7D32"  # forest green: cropland contraction
+col_neutral   <- "grey70"
+```
+
+## Plot 1: Protection gap dumbbell
+
+```{r plot1, fig.width=10, fig.height=10}
+d1 <- awf %>% mutate(LabelShort = fct_reorder(LabelShort, ProtectionGap, .desc = FALSE))
+
+p1 <- ggplot(d1, aes(y = LabelShort)) +
+  geom_segment(aes(x = KBA_pct, xend = Protected_pct, yend = LabelShort),
+               colour = col_neutral, linewidth = 0.8) +
+  geom_point(aes(x = KBA_pct, colour = "KBA share"), size = 2.8) +
+  geom_point(aes(x = Protected_pct, colour = "Protected share"), size = 2.8) +
+  scale_colour_manual(values = c("KBA share" = col_kba, "Protected share" = col_protected),
+                      name = NULL) +
+  labs(
+    title    = "Protection gap: biodiversity value vs formal protection",
+    subtitle = "Landscapes sorted by protection gap (protected % minus KBA %); lowest at bottom",
+    x = "Share of landscape area (%)", y = NULL,
+    caption  = "Sources: AWF Africa_KBA polygon asset (KBA share); World Database on Protected Areas, WDPA (protected share)."
+  ) +
+  theme_awf()
+
+ggsave("outputs/figures/01_protection_gap_dumbbell.png", p1,
+       width = 10, height = 10, dpi = 300, bg = "white")
+p1
+```
+
+## Plot 2: Cropland dynamics diverging bar
+
+```{r plot2, fig.width=10, fig.height=10}
+d2 <- awf %>%
+  mutate(CropNet_kha = CropNet17_25_ha / 1000,
+         LabelShort  = fct_reorder(LabelShort, CropNet_kha))
+
+p2 <- ggplot(d2, aes(x = CropNet_kha, y = LabelShort, fill = CropDirection)) +
+  geom_col(width = 0.75) +
+  geom_vline(xintercept = 0, colour = "grey20", linewidth = 0.5) +
+  scale_fill_manual(values = c("Net expansion" = col_expand,
+                               "Net contraction" = col_contract,
+                               "No change" = col_neutral), name = NULL) +
+  labs(
+    title    = "Cropland dynamics 2017–2025",
+    subtitle = "Net change in cropland area per landscape",
+    x = "Net cropland change (thousands of hectares)", y = NULL,
+    caption  = paste0("Source: Esri/Impact Observatory Sentinel-2 10 m LULC (2017, 2025), common-valid footprint.\n",
+                      "Net change = gross expansion (non-crop 2017 → crop 2025) minus gross loss (crop 2017 → non-crop 2025).")
+  ) +
+  theme_awf()
+
+ggsave("outputs/figures/02_cropland_dynamics_bar.png", p2,
+       width = 10, height = 10, dpi = 300, bg = "white")
+p2
+```
+
+## Plot 3: Population-nature scatter
+
+```{r plot3, fig.width=10, fig.height=8}
+p3 <- ggplot(awf, aes(x = Natural25_pct, y = PopGrowth_pct)) +
+  geom_vline(xintercept = median(awf$Natural25_pct, na.rm = TRUE),
+             linetype = "dashed", colour = "grey55") +
+  geom_hline(yintercept = median(awf$PopGrowth_pct, na.rm = TRUE),
+             linetype = "dashed", colour = "grey55") +
+  geom_point(aes(size = Km_sq), colour = col_kba, alpha = 0.65) +
+  geom_text_repel(aes(label = LabelShort), size = 2.8, colour = "grey20",
+                  max.overlaps = 20, seed = 42, segment.colour = "grey70",
+                  segment.size = 0.25) +
+  scale_size_area(max_size = 12, labels = comma, name = "Landscape area (km²)") +
+  labs(
+    title    = "Population growth vs remaining natural cover",
+    subtitle = "SSP2 population growth 2030–2050 against natural land cover in 2025; dashed lines = medians",
+    x = "Natural land cover, 2025 (% of classified area)",
+    y = "Projected population growth 2030–2050 (%)",
+    caption  = paste0("Sources: Wang, Meng & Long SSP2 population projections; Esri/Impact Observatory LULC.\n",
+                      "Lower-right quadrant = high natural cover under high demographic pressure.")
+  ) +
+  theme_awf()
+
+ggsave("outputs/figures/03_population_nature_scatter.png", p3,
+       width = 10, height = 8, dpi = 300, bg = "white")
+p3
+```
+
+## Plot 4: Carbon stock x threat quadrant
+
+```{r plot4, fig.width=10, fig.height=8}
+med_x <- median(awf$CropPctChg17_25, na.rm = TRUE)
+med_y <- median(awf$AGB22_MgHa, na.rm = TRUE)
+
+p4 <- ggplot(awf, aes(x = CropPctChg17_25, y = AGB22_MgHa)) +
+  annotate("rect", xmin = med_x, xmax = Inf, ymin = med_y, ymax = Inf,
+           fill = "#4A6741", alpha = 0.07) +
+  annotate("text", x = max(awf$CropPctChg17_25, na.rm = TRUE),
+           y = max(awf$AGB22_MgHa, na.rm = TRUE),
+           label = "High carbon, high threat", fontface = "italic", colour = "grey35",
+           hjust = 1, vjust = -0.3, size = 3.5) +
+  geom_vline(xintercept = med_x, linetype = "dashed", colour = "grey55") +
+  geom_hline(yintercept = med_y, linetype = "dashed", colour = "grey55") +
+  geom_point(aes(size = AGB22_Mt), colour = "#4A6741", alpha = 0.6) +
+  geom_text_repel(aes(label = LabelShort), size = 2.8, colour = "grey20",
+                  max.overlaps = 20, seed = 42, segment.colour = "grey70",
+                  segment.size = 0.25) +
+  scale_size_area(max_size = 12, labels = comma, name = "Total AGB (Mt)") +
+  labs(
+    title    = "Carbon stock and cropland threat",
+    subtitle = "Above-ground biomass density vs relative cropland change 2017–2025; dashed lines = medians",
+    x = "Net cropland change relative to 2017 (%)",
+    y = "Mean above-ground biomass, 2022 (Mg/ha)",
+    caption  = "Sources: ESA CCI Biomass v6 (2022, 100 m); Esri/Impact Observatory LULC 2017 and 2025."
+  ) +
+  theme_awf()
+
+ggsave("outputs/figures/04_carbon_threat_quadrant.png", p4,
+       width = 10, height = 8, dpi = 300, bg = "white")
+p4
+```
+
+## Plot 5: Composite overview
+
+```{r plot5, fig.width=20, fig.height=16}
+p5 <- (p1 + p2) / (p3 + p4) +
+  plot_annotation(
+    title    = "AWF Priority Landscapes — Conservation Planning Overview",
+    subtitle = "42 landscapes across sub-Saharan Africa",
+    caption  = "Analysis: Isaac Mureithi | OPALS / AWF",
+    theme    = theme(plot.title    = element_text(face = "bold", size = 22),
+                     plot.subtitle = element_text(colour = "grey40", size = 15),
+                     plot.caption  = element_text(colour = "grey55", size = 11, hjust = 0))
+  )
+
+ggsave("outputs/figures/05_composite_overview.png", p5,
+       width = 20, height = 16, dpi = 300, bg = "white")
+p5
+```
