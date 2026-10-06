@@ -385,7 +385,7 @@ bubble_map <- function(pts, point_layer, scales, title, subtitle, caption) {
 }
 ```
 
-```{r, fig.width=14.5, fig.height=10}
+```{r}
 ## Map 1: Location of the 42 priority landscapes (bubble size = landscape area)
 m1 <- bubble_map(
   pts = arrange(pts_laea, desc(Km_sq)),   # largest bubbles first, so small ones stay visible
@@ -441,7 +441,7 @@ m1_view
 tmap_mode("plot")
 ```
 
-```{r, fig.width=14.5, fig.height=10}
+```{r}
 ## Map 2: Protection gap (bubble colour = protected % minus KBA %, bubble size = KBA area)
 # Colours follow plot 1: teal where the KBA share exceeds the protected share (negative gap, biodiversity
 # value not covered by protection), burnt orange where the protected share exceeds the KBA share.
