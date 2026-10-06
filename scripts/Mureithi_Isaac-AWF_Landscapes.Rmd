@@ -17,7 +17,7 @@ knitr::opts_knit$set(root.dir = normalizePath(".."))  # project root
 
 if (!require("pacman")) install.packages("pacman")
 
-pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox, readxl)
+pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox, readxl, rnaturalearth, rnaturalearthdata)
 
 # DATA HANDLING#
 # readxl -> for reading the .xlsx landscape data
@@ -33,6 +33,7 @@ pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, 
 # terra -> for handling and processing raster data
 # tidyterra -> for using tidyverse tools on terra objects
 # tmap -> for creating thematic maps
+# rnaturalearth / rnaturalearthdata -> Natural Earth country boundaries as context layers
 
 # VISUALISATION#
 # viridis -> for perceptually uniform color palettes
@@ -184,7 +185,6 @@ p2
 
 ```{r}
 ## Plot 3: Population-nature scatter
-<<<<<<< HEAD
 # Most landscapes retain >90% natural cover, so the axis is stretched toward 100%
 # (log scale of the *converted* share, 100 - natural). Medians/quadrants are unaffected.
 trans_natural <- scales::new_transform(
@@ -196,8 +196,6 @@ trans_natural <- scales::new_transform(
 med_nat <- median(awf$Natural25_pct, na.rm = TRUE)
 med_pop <- median(awf$PopGrowth_pct, na.rm = TRUE)
 
-=======
->>>>>>> 15ad0e84539f26c729e54413dbf6f8ca8a3dff97
 p3 <- ggplot(awf, aes(x = Natural25_pct, y = PopGrowth_pct)) +
   annotate("rect", xmin = med_nat, xmax = 100, ymin = med_pop, ymax = Inf,
            fill = col_kba, alpha = 0.07) +
@@ -285,3 +283,159 @@ p5
 ```
 
 ```{r}
+## Spatial data preparation
+# Landscape locations are approximate, hand-geocoded centroids (data/raw/awf_landscape_centroids.csv)
+# until polygon centroids are available. To swap in exact centroids, export them from GEE and
+# overwrite that CSV (it needs the columns LandscapeID, lon, lat):
+#   var pts = landscapes.map(function(f) {
+#     var c = f.geometry().centroid(1).coordinates();
+#     return ee.Feature(null, {LandscapeID: f.get('LandscapeID'), lon: c.get(0), lat: c.get(1)});
+#   });
+#   Export.table.toDrive({collection: pts, description: 'awf_landscape_centroids', fileFormat: 'CSV'});
+centroids <- read_csv("data/raw/awf_landscape_centroids.csv", show_col_types = FALSE) %>%
+  select(LandscapeID, lon, lat, any_of("Confidence"))
+
+awf_pts <- awf %>%
+  left_join(centroids, by = "LandscapeID") %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+
+Africa.Country.Boundaries <- ne_countries(scale = "medium", continent = "Africa", returnclass = "sf")
+
+# Sanity check: every centroid should fall inside an African country polygon
+awf_pts <- awf_pts %>%
+  st_join(Africa.Country.Boundaries["name"]) %>%
+  distinct(LandscapeID, .keep_all = TRUE) %>%
+  rename(CountryNE = name)
+stopifnot(nrow(awf_pts) == nrow(awf))
+if (anyNA(awf_pts$CountryNE)) {
+  warning("Centroids outside country polygons: ",
+          paste(awf_pts$LandscapeName[is.na(awf_pts$CountryNE)], collapse = ", "))
+}
+
+# Africa-wide equal-area projection, and a helper that turns a lon/lat window into a bounding box in it
+crs_africa <- "+proj=laea +lat_0=3 +lon_0=20 +datum=WGS84 +units=m +no_defs"
+
+lonlat_bbox <- function(xmin, xmax, ymin, ymax) {
+  st_bbox(c(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), crs = st_crs(4326)) %>%
+    st_as_sfc() %>%
+    st_segmentize(units::set_units(10, km)) %>%
+    st_transform(crs_africa) %>%
+    st_bbox()
+}
+
+africa_laea <- st_transform(Africa.Country.Boundaries, crs_africa)
+pts_laea    <- st_transform(awf_pts, crs_africa)
+xy          <- st_coordinates(pts_laea)
+pts_laea$X  <- xy[, 1]
+pts_laea$Y  <- xy[, 2]
+```
+
+```{r}
+## Shared map helpers
+east_window <- c(xmin = 28.5, xmax = 40.5, ymin = -10.5, ymax = 5.5)  # lon/lat of the East Africa zoom
+bb_all  <- lonlat_bbox(-18.5, 52, -35.5, 38)                           # mainland Africa + Madagascar
+bb_east <- do.call(lonlat_bbox, as.list(east_window))
+bb_aspect <- function(bb) unname((bb["xmax"] - bb["xmin"]) / (bb["ymax"] - bb["ymin"]))
+
+pts_laea <- pts_laea %>%
+  mutate(East = between(lon, east_window["xmin"], east_window["xmax"]) &
+                between(lat, east_window["ymin"], east_window["ymax"]))
+
+basemap  <- geom_sf(data = africa_laea, fill = alpha("lightyellow", 0.4), colour = "grey25", linewidth = 0.2)
+map_bare <- theme(axis.text = element_blank(), axis.title = element_blank(),
+                  panel.grid.major = element_blank(),
+                  plot.title = element_text(size = 10, face = "bold"))
+
+# Africa overview + East Africa zoom for a bubble map of the landscapes (static, ggplot2 + sf so that
+# crowded labels can have leader lines via ggrepel; East Africa holds about a third of the landscapes).
+#   pts          landscape points (pts_laea), ordered so that the largest bubbles are drawn first
+#   point_layer  function(data) returning the geom that draws the bubbles (must map X, Y and size)
+#   scales       list of ggplot scales/guides shared by both panels (set `limits` from all landscapes)
+bubble_map <- function(pts, point_layer, scales, title, subtitle, caption) {
+  panel <- function(d, bb, label_size, panel_title, ...) {
+    p <- ggplot() + basemap + point_layer(d) + scales +
+      coord_sf(crs = crs_africa, xlim = bb[c("xmin", "xmax")], ylim = bb[c("ymin", "ymax")],
+               expand = FALSE) +
+      labs(title = panel_title) +
+      theme_awf() + map_bare
+    d$bubble_size <- ggplot_build(p)$data[[2]]$size   # drawn bubble size, so labels keep clear of bubbles
+    # unlabelled points (empty label) still repel the labels, so labels never sit on another bubble
+    p + geom_text_repel(data = mutate(d, label = if_else(labelled, LandscapeName, "")),
+                        aes(X, Y, label = label, point.size = bubble_size),
+                        size = label_size, colour = "grey15", bg.color = "white", bg.r = 0.12,
+                        max.overlaps = Inf, seed = 42, segment.colour = "grey40", segment.size = 0.25,
+                        min.segment.length = 0, max.time = 5, max.iter = 1e5, ...)
+  }
+
+  overview <- panel(mutate(pts, labelled = !East), bb_all, 2.6, "Overview",
+                    box.padding = 0.4, point.padding = 0.2, force = 4) +
+    annotate("rect", xmin = bb_east["xmin"], xmax = bb_east["xmax"],
+             ymin = bb_east["ymin"], ymax = bb_east["ymax"],
+             fill = NA, colour = "grey30", linewidth = 0.4, linetype = "dashed")
+
+  zoom <- panel(mutate(filter(pts, East), labelled = TRUE), bb_east, 3.1, "East Africa (zoom of dashed box)",
+                box.padding = 0.5, point.padding = 0.3, force = 6) +
+    theme(panel.border = element_rect(colour = "grey30", fill = NA, linetype = "dashed"))
+
+  (overview + zoom) +
+    plot_layout(widths = c(bb_aspect(bb_all), bb_aspect(bb_east)), guides = "collect") +
+    plot_annotation(title = title, subtitle = subtitle, caption = caption, theme = theme_awf()) &
+    theme(legend.position = "bottom")
+}
+```
+
+```{r, fig.width=14.5, fig.height=10}
+## Map 1: Location of the 42 priority landscapes (bubble size = landscape area)
+m1 <- bubble_map(
+  pts = arrange(pts_laea, desc(Km_sq)),   # largest bubbles first, so small ones stay visible
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = Km_sq), shape = 21,
+               fill = col_kba, colour = "white", alpha = 0.75, stroke = 0.4)
+  },
+  scales = list(
+    scale_size_area(max_size = 11, limits = c(0, max(pts_laea$Km_sq)),
+                    breaks = c(10000, 50000, 100000, 200000), labels = comma,
+                    name = "Landscape area (km²)")
+  ),
+  title    = "AWF priority landscapes",
+  subtitle = "Locations of the 42 landscapes across sub-Saharan Africa; bubble area is proportional to landscape area",
+  caption  = paste0("Sources: Natural Earth country boundaries; AWF priority landscapes.\n",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave("outputs/figures/06_map_landscape_locations.png", m1,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m1
+```
+
+```{r}
+## Map 1 (interactive): same locations on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+popup_vars <- c("Area (km²)" = "Km_sq", "Location confidence" = "Confidence")
+popup_vars <- popup_vars[popup_vars %in% names(awf_pts)]
+
+m1_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts) +
+  tm_symbols(size = 0.8, fill = col_kba, fill_alpha = 0.9, col = "white",
+             id = "LandscapeName", popup.vars = popup_vars) +
+  tm_title("AWF priority landscapes") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m1_view
+
+tmap_mode("plot")
+```
