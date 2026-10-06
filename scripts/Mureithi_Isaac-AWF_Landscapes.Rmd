@@ -184,6 +184,7 @@ p2
 
 ```{r}
 ## Plot 3: Population-nature scatter
+<<<<<<< HEAD
 # Most landscapes retain >90% natural cover, so the axis is stretched toward 100%
 # (log scale of the *converted* share, 100 - natural). Medians/quadrants are unaffected.
 trans_natural <- scales::new_transform(
@@ -195,6 +196,8 @@ trans_natural <- scales::new_transform(
 med_nat <- median(awf$Natural25_pct, na.rm = TRUE)
 med_pop <- median(awf$PopGrowth_pct, na.rm = TRUE)
 
+=======
+>>>>>>> 15ad0e84539f26c729e54413dbf6f8ca8a3dff97
 p3 <- ggplot(awf, aes(x = Natural25_pct, y = PopGrowth_pct)) +
   annotate("rect", xmin = med_nat, xmax = 100, ymin = med_pop, ymax = Inf,
            fill = col_kba, alpha = 0.07) +
