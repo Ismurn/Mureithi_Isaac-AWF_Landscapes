@@ -52,3 +52,8 @@ Thumbs.db
 # Knitted reports
 *.html
 !README.html
+
+# knitr default figure folder (figures are saved to outputs/figures/ by ggsave)
+figure/
+*_files/
+Rplots.pdf

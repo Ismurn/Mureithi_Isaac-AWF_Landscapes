@@ -1,0 +1,43 @@
+LandscapeID,LandscapeName,lon,lat,Confidence
+1,KAZA,25.2,-18.3,low
+2,Samburu,37.2,0.9,medium
+3,Kilimanjaro,37.1,-3.0,medium
+4,Ruaha,34.3,-7.3,medium
+5,Bale,39.8,6.8,high
+6,Katavi,31.3,-6.5,medium
+7,Rift Valley,38.7,7.6,low
+8,Tai-Sapo Forest,-7.9,5.6,medium
+9,Niokola-Koba,-12.7,12.9,medium
+10,Badingalo,32.2,5.9,low
+11,The Sudd,30.6,7.5,medium
+12,Skeleton Coast-Etosha,14.7,-19.3,medium
+13,Bouba-Sena Oura,15.0,8.5,medium
+14,Gouda-St. Floris,21.0,8.7,low
+15,Boma-Gambella,34.3,7.3,medium
+16,Halladegye,40.7,10.8,low
+17,Queen Elizabeth,30.0,-0.2,high
+18,Moukalaba-Doudou,10.8,-2.6,medium
+19,Gola-Tiwai,-10.9,7.3,low
+20,Kafue,26.0,-15.2,medium
+21,Kalahari,24.0,-22.0,low
+22,Luangwa,32.2,-12.7,medium
+23,Niassa,37.6,-12.3,medium
+24,Okavango,22.9,-19.4,high
+25,Luengue-Luiana and Mavinga,20.9,-16.1,medium
+26,Virungas,29.4,-0.6,medium
+27,Maasai-Steppe,36.1,-4.2,medium
+28,Parc W-Dosso,2.9,12.7,low
+29,South-Eastern Lowveld in Zimbabwe,31.7,-20.9,medium
+30,Simien,38.1,13.2,high
+31,Selous-Kilombero,37.5,-8.7,medium
+32,Tsavo-Mkomazi,38.5,-3.4,medium
+33,Masai Mara,35.2,-1.5,low
+34,Campo-Ma'an,10.5,2.4,high
+35,Murchison Falls,31.8,2.3,high
+36,Maringa-Lopori-Wamba,21.8,0.9,low
+37,Bili Uele,25.8,4.2,low
+38,Lake Mburo,30.9,-0.6,high
+39,Kidepo-Imatong,33.5,4.2,low
+40,Dja,13.5,3.0,medium
+41,Faro-Gashaka Gumti,12.2,7.6,low
+42,Mid-Zambezi Valley,29.8,-16.0,medium

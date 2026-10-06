@@ -16,17 +16,19 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 
 | Script | Description |
 |---|---|
-| `scripts/Mureithi_Isaac-AWF_Landscapes.Rmd` | R Markdown analysis: data preparation, shared theme, and the five non-spatial figures. |
+| `scripts/Mureithi_Isaac-AWF_Landscapes.Rmd` | R Markdown analysis: data preparation, shared theme, the five non-spatial figures, and the spatial maps (being added one at a time). |
 
 | File | Description |
 |---|---|
 | `data/raw/awf_landscapes_raw.xlsx` | Raw landscape attributes (sheet `AWF_Landscapes`, 42 × 24) plus a `Metadata` data dictionary sheet. |
+| `data/raw/awf_landscape_centroids.csv` | Landscape point locations (`lon`, `lat`) used for the maps. **Approximate, hand-geocoded placeholders** (see `Confidence` column) until centroids are exported from the AWF landscape polygons in GEE. |
 | `data/processed/awf_landscapes_clean.csv` | Cleaned data with derived variables (population growth, population density, protection gap, annualised cropland rates, cropland direction, AGB class). |
 | `outputs/figures/01_protection_gap_dumbbell.png` | KBA share vs protected share per landscape. |
 | `outputs/figures/02_cropland_dynamics_bar.png` | Net cropland change 2017–2025. |
 | `outputs/figures/03_population_nature_scatter.png` | SSP2 population growth vs natural cover. |
 | `outputs/figures/04_carbon_threat_quadrant.png` | AGB density vs relative cropland change. |
 | `outputs/figures/05_composite_overview.png` | 2×2 composite of the four figures above. |
+| `outputs/figures/06_map_landscape_locations.png` | Map 1: locations of the 42 landscapes (bubble area = landscape area), with an East Africa zoom panel. |
 
 `outputs/tables/` is reserved for summary tables.
 
@@ -41,6 +43,7 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 | Precipitation | CHIRPS Daily | ~5.6 km | 1991–2020 mean |
 | Above-ground biomass | ESA CCI Biomass v6 | 100 m | 2022 |
 | Protected areas | World Database on Protected Areas (WDPA) | Vector polygons | Current |
+| Country boundaries (map context) | Natural Earth via `rnaturalearth` | 1:50m vector | Current |
 
 ## Getting started
 
