@@ -29,6 +29,7 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 | `outputs/figures/04_carbon_threat_quadrant.png` | AGB density vs relative cropland change. |
 | `outputs/figures/05_composite_overview.png` | 2×2 composite of the four figures above. |
 | `outputs/figures/06_map_landscape_locations.png` | Map 1: locations of the 42 landscapes (bubble area = landscape area), with an East Africa zoom panel. |
+| `outputs/figures/07_map_protection_gap.png` | Map 2: protection gap (protected % minus KBA %, classed colours) with bubble area = KBA area. |
 
 `outputs/tables/` is reserved for summary tables.
 
