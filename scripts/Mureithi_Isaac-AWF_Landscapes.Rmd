@@ -1,4 +1,4 @@
-﻿---
+---
 title: "Mureithi_Isaac-AWF_Landscapes"
 author: "Isaac Nduta Mureithi"
 date: "2026-10-05"
@@ -56,12 +56,8 @@ pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, 
 #trend -> for analysing trends in time-series data = Theil-Sen slope
 ```
 
-
-
-
+```{r}
 ## Data preparation
-
-```{r data-prep}
 dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
 dir.create("outputs/figures", showWarnings = FALSE, recursive = TRUE)
 dir.create("outputs/tables",  showWarnings = FALSE, recursive = TRUE)
@@ -103,9 +99,8 @@ awf %>%
 write_csv(awf, "data/processed/awf_landscapes_clean.csv")
 ```
 
+```{r}
 ## Shared theme and palette
-
-```{r theme}
 theme_awf <- function(base_size = 11) {
   theme_minimal(base_size = base_size) %+replace%
     theme(
@@ -131,9 +126,8 @@ col_contract  <- "#2E7D32"  # forest green: cropland contraction
 col_neutral   <- "grey70"
 ```
 
+```{r}
 ## Plot 1: Protection gap dumbbell
-
-```{r plot1, fig.width=10, fig.height=10}
 d1 <- awf %>% mutate(LabelShort = fct_reorder(LabelShort, ProtectionGap, .desc = FALSE))
 
 p1 <- ggplot(d1, aes(y = LabelShort)) +
@@ -156,9 +150,8 @@ ggsave("outputs/figures/01_protection_gap_dumbbell.png", p1,
 p1
 ```
 
+```{r}
 ## Plot 2: Cropland dynamics diverging bar
-
-```{r plot2, fig.width=10, fig.height=10}
 d2 <- awf %>%
   mutate(CropNet_kha = CropNet17_25_ha / 1000,
          LabelShort  = fct_reorder(LabelShort, CropNet_kha))
@@ -166,6 +159,12 @@ d2 <- awf %>%
 p2 <- ggplot(d2, aes(x = CropNet_kha, y = LabelShort, fill = CropDirection)) +
   geom_col(width = 0.75) +
   geom_vline(xintercept = 0, colour = "grey20", linewidth = 0.5) +
+  geom_text(aes(label = ifelse(abs(CropNet_kha) < 1,
+                               ifelse(abs(CropNet_kha) < 0.005, "0.00", sprintf("%+.2f", CropNet_kha)),
+                               sprintf("%+.1f", CropNet_kha)),
+                hjust = ifelse(CropNet_kha >= 0, -0.15, 1.15)),
+            size = 2.6, colour = "grey30") +
+  scale_x_continuous(expand = expansion(mult = c(0.06, 0.08))) +
   scale_fill_manual(values = c("Net expansion" = col_expand,
                                "Net contraction" = col_contract,
                                "No change" = col_neutral), name = NULL) +
@@ -183,26 +182,43 @@ ggsave("outputs/figures/02_cropland_dynamics_bar.png", p2,
 p2
 ```
 
+```{r}
 ## Plot 3: Population-nature scatter
+# Most landscapes retain >90% natural cover, so the axis is stretched toward 100%
+# (log scale of the *converted* share, 100 - natural). Medians/quadrants are unaffected.
+trans_natural <- scales::new_transform(
+  "natural_cover",
+  transform = function(x) -log10(100.5 - x),
+  inverse   = function(x) 100.5 - 10^(-x)
+)
 
-```{r plot3, fig.width=10, fig.height=8}
+med_nat <- median(awf$Natural25_pct, na.rm = TRUE)
+med_pop <- median(awf$PopGrowth_pct, na.rm = TRUE)
+
 p3 <- ggplot(awf, aes(x = Natural25_pct, y = PopGrowth_pct)) +
-  geom_vline(xintercept = median(awf$Natural25_pct, na.rm = TRUE),
-             linetype = "dashed", colour = "grey55") +
-  geom_hline(yintercept = median(awf$PopGrowth_pct, na.rm = TRUE),
-             linetype = "dashed", colour = "grey55") +
+  annotate("rect", xmin = med_nat, xmax = 100, ymin = med_pop, ymax = Inf,
+           fill = col_kba, alpha = 0.07) +
+  annotate("text", x = 100, y = max(awf$PopGrowth_pct) * 1.04,
+           label = "High natural cover, high demographic pressure",
+           fontface = "italic", colour = "grey35", hjust = 1, size = 3.5) +
+  geom_vline(xintercept = med_nat, linetype = "dashed", colour = "grey55") +
+  geom_hline(yintercept = med_pop, linetype = "dashed", colour = "grey55") +
   geom_point(aes(size = Km_sq), colour = col_kba, alpha = 0.65) +
   geom_text_repel(aes(label = LabelShort), size = 2.8, colour = "grey20",
                   max.overlaps = 20, seed = 42, segment.colour = "grey70",
-                  segment.size = 0.25) +
-  scale_size_area(max_size = 12, labels = comma, name = "Landscape area (km²)") +
+                  segment.size = 0.25, box.padding = 0.4, min.segment.length = 0.1) +
+  scale_x_continuous(transform = trans_natural,
+                     breaks = c(50, 70, 80, 90, 95, 98, 99, 100),
+                     limits = c(50, 100), expand = expansion(mult = c(0.02, 0.04))) +
+  scale_y_continuous(expand = expansion(mult = c(0.04, 0.1))) +
+  scale_size_area(max_size = 12, labels = comma, name = "Landscape area (km\u00b2)") +
   labs(
     title    = "Population growth vs remaining natural cover",
-    subtitle = "SSP2 population growth 2030–2050 against natural land cover in 2025; dashed lines = medians",
-    x = "Natural land cover, 2025 (% of classified area)",
-    y = "Projected population growth 2030–2050 (%)",
+    subtitle = "SSP2 population growth 2030\u20132050 against natural land cover in 2025; dashed lines = medians",
+    x = "Natural land cover, 2025 (% of classified area; stretched scale toward 100%)",
+    y = "Projected population growth 2030\u20132050 (%)",
     caption  = paste0("Sources: Wang, Meng & Long SSP2 population projections; Esri/Impact Observatory LULC.\n",
-                      "Lower-right quadrant = high natural cover under high demographic pressure.")
+                      "Upper-right quadrant = high natural cover under high demographic pressure.")
   ) +
   theme_awf()
 
@@ -211,9 +227,8 @@ ggsave("outputs/figures/03_population_nature_scatter.png", p3,
 p3
 ```
 
+```{r}
 ## Plot 4: Carbon stock x threat quadrant
-
-```{r plot4, fig.width=10, fig.height=8}
 med_x <- median(awf$CropPctChg17_25, na.rm = TRUE)
 med_y <- median(awf$AGB22_MgHa, na.rm = TRUE)
 
@@ -227,15 +242,19 @@ p4 <- ggplot(awf, aes(x = CropPctChg17_25, y = AGB22_MgHa)) +
   geom_vline(xintercept = med_x, linetype = "dashed", colour = "grey55") +
   geom_hline(yintercept = med_y, linetype = "dashed", colour = "grey55") +
   geom_point(aes(size = AGB22_Mt), colour = "#4A6741", alpha = 0.6) +
-  geom_text_repel(aes(label = LabelShort), size = 2.8, colour = "grey20",
-                  max.overlaps = 20, seed = 42, segment.colour = "grey70",
-                  segment.size = 0.25) +
+  geom_text_repel(aes(label = LabelShort), size = 2.6, colour = "grey20",
+                  max.overlaps = Inf, seed = 42, segment.colour = "grey70",
+                  segment.size = 0.25, box.padding = 0.35, point.padding = 0.15,
+                  min.segment.length = 0, force = 2, max.time = 5, max.iter = 30000) +
+  scale_x_continuous(transform = scales::pseudo_log_trans(sigma = 50, base = 10),
+                     breaks = c(-100, -50, 0, 50, 100, 200, 400, 600)) +
+  scale_y_log10(breaks = c(10, 20, 50, 100, 200, 400)) +
   scale_size_area(max_size = 12, labels = comma, name = "Total AGB (Mt)") +
   labs(
     title    = "Carbon stock and cropland threat",
     subtitle = "Above-ground biomass density vs relative cropland change 2017–2025; dashed lines = medians",
-    x = "Net cropland change relative to 2017 (%)",
-    y = "Mean above-ground biomass, 2022 (Mg/ha)",
+    x = "Net cropland change relative to 2017 (%; pseudo-log scale)",
+    y = "Mean above-ground biomass, 2022 (Mg/ha; log scale)",
     caption  = "Sources: ESA CCI Biomass v6 (2022, 100 m); Esri/Impact Observatory LULC 2017 and 2025."
   ) +
   theme_awf()
@@ -245,9 +264,8 @@ ggsave("outputs/figures/04_carbon_threat_quadrant.png", p4,
 p4
 ```
 
+```{r}
 ## Plot 5: Composite overview
-
-```{r plot5, fig.width=20, fig.height=16}
 p5 <- (p1 + p2) / (p3 + p4) +
   plot_annotation(
     title    = "AWF Priority Landscapes — Conservation Planning Overview",
@@ -262,3 +280,5 @@ ggsave("outputs/figures/05_composite_overview.png", p5,
        width = 20, height = 16, dpi = 300, bg = "white")
 p5
 ```
+
+```{r}
