@@ -30,6 +30,8 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 | `outputs/figures/05_composite_overview.png` | 2×2 composite of the four figures above. |
 | `outputs/figures/06_map_landscape_locations.png` | Map 1: locations of the 42 landscapes (bubble area = landscape area), with an East Africa zoom panel. |
 | `outputs/figures/07_map_protection_gap.png` | Map 2: protection gap (protected % minus KBA %, classed colours) with bubble area = KBA area. |
+| `outputs/figures/08_map_cropland_change_absolute.png` | Map 3: net cropland change 2017–2025 in hectares (bubble area = size of change, colour = direction). |
+| `outputs/figures/09_map_cropland_change_relative.png` | Map 4: net cropland change 2017–2025 as % of 2017 cropland, same layout and colours as Map 3 for direct comparison. |
 
 `outputs/tables/` is reserved for summary tables.
 
