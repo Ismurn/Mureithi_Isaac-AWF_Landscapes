@@ -32,6 +32,10 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 | `outputs/figures/07_map_protection_gap.png` | Map 2: protection gap (protected % minus KBA %, classed colours) with bubble area = KBA area. |
 | `outputs/figures/08_map_cropland_change_absolute.png` | Map 3: net cropland change 2017–2025 in hectares (bubble area = size of change, colour = direction). |
 | `outputs/figures/09_map_cropland_change_relative.png` | Map 4: net cropland change 2017–2025 as % of 2017 cropland, same layout and colours as Map 3 for direct comparison. |
+| `outputs/figures/10_map_carbon_threat.png` | Map 5: carbon stock × cropland threat (bubble area = total above-ground biomass, colour = the four quadrants of plot 4). |
+| `outputs/figures/11_map_population_pressure.png` | Map 6: demographic pressure (bubble area = SSP2 population density in 2030, colour = projected growth 2030–2050). |
+| `outputs/figures/12_map_land_conversion.png` | Map 7: land conversion in 2025 (bubble area = cropland + built-up area, colour = its share of the landscape). |
+| `outputs/figures/13_map_rainfall_biomass.png` | Map 8: rainfall × biomass (bubble area = above-ground biomass density, colour = mean annual rainfall 1991–2020). |
 
 `outputs/tables/` is reserved for summary tables.
 
@@ -54,7 +58,7 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 git clone https://github.com/Ismurn/Mureithi_Isaac-AWF_Landscapes.git
 ```
 
-Open `AWF_Landscapes.Rproj` in RStudio, then open and knit (or run chunk by chunk) `scripts/Mureithi_Isaac-AWF_Landscapes.Rmd`. Packages are installed on demand via `pacman::p_load()`.
+Open `AWF_Landscapes.Rproj` in RStudio, then open and knit (or run chunk by chunk) `scripts/Mureithi_Isaac-AWF_Landscapes.Rmd`. Packages are installed on demand via `pacman::p_load()`. All file paths use `here::here()`, so chunks can be run one at a time from any working directory (RStudio runs chunks from the `scripts/` folder by default); run the package-loading chunk first in a new session.
 
 ## Acknowledgements
 
