@@ -505,7 +505,7 @@ m2_view <- tm_shape(Africa.Country.Boundaries) +
     size.scale = tm_scale_continuous(values.scale = 2),
     size.legend = tm_legend(title = "KBA area (km²)"),
     fill = "GapClass",
-    fill.scale = tm_scale_categorical(values = gap_cols),
+    fill.scale = tm_scale_categorical(values = gap_cols, value.neutral = "grey70"),   # neutral colour for the size legend
     fill.legend = tm_legend(title = "Protection gap (pp)"),
     fill_alpha = 0.85,
     col = "grey30",
@@ -523,6 +523,142 @@ m2_view <- tm_shape(Africa.Country.Boundaries) +
     )
   )
 m2_view
+
+tmap_mode("plot")
+```
+
+```{r}
+## Maps 3 and 4: Cropland change 2017-2025, absolute (hectares) vs relative (% of 2017 cropland)
+# Both maps share the layout and colour code (direction of net change, as in plot 2); only the bubble
+# size differs, so the two can be compared directly. Bubble area = size of the net change.
+pts_crop <- pts_laea %>%
+  mutate(AbsNet_kha = abs(CropNet17_25_ha) / 1000,   # absolute net change, thousand hectares
+         AbsPct     = abs(CropPctChg17_25))          # absolute net change, % of 2017 cropland
+
+crop_dir_scale <- scale_fill_manual(
+  values = c("Net expansion" = col_expand, "Net contraction" = col_contract, "No change" = col_neutral),
+  breaks = c("Net expansion", "Net contraction"),
+  name   = "Direction of net change")
+crop_guides <- guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+                      fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                                          override.aes = list(size = 5)))
+
+crop_caption <- paste0("Sources: Esri/Impact Observatory Sentinel-2 10 m LULC (2017, 2025), common-valid footprint; Natural Earth. ",
+                       "Net change = gross cropland expansion minus gross loss.\n",
+                       "Landscapes with almost no change are drawn at minimum size. ",
+                       "Point locations are approximate and will be replaced with landscape polygon centroids.")
+```
+
+```{r}
+## Map 3: Cropland change, absolute (bubble size = hectares)
+m3 <- bubble_map(
+  pts = arrange(pts_crop, desc(AbsNet_kha)),   # largest bubbles first, so small ones stay visible
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = AbsNet_kha, fill = CropDirection), shape = 21,
+               colour = "grey30", alpha = 0.85, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_crop$AbsNet_kha)),
+               breaks = c(1, 10, 50, 100, 300), labels = comma,
+               name = "Net change (thousand hectares)"),
+    crop_dir_scale,
+    crop_guides
+  ),
+  title    = "Cropland change 2017–2025: absolute change",
+  subtitle = "Bubble area is proportional to the net change in cropland area (hectares); colour shows direction",
+  caption  = crop_caption
+)
+
+ggsave("outputs/figures/08_map_cropland_change_absolute.png", m3,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m3
+```
+
+```{r}
+## Map 4: Cropland change, relative (bubble size = % of 2017 cropland)
+# Percentages are volatile where 2017 cropland was small, so Map 4 should be read next to Map 3.
+kalahari <- filter(awf, LandscapeName == "Kalahari")
+
+m4 <- bubble_map(
+  pts = arrange(pts_crop, desc(AbsPct)),
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = AbsPct, fill = CropDirection), shape = 21,
+               colour = "grey30", alpha = 0.85, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_crop$AbsPct)),
+               breaks = c(10, 50, 100, 200, 500), labels = comma,
+               name = "Net change (% of 2017 cropland)"),
+    crop_dir_scale,
+    crop_guides
+  ),
+  title    = "Cropland change 2017–2025: relative change",
+  subtitle = "Bubble area is proportional to the net change relative to 2017 cropland (%); colour shows direction",
+  caption  = paste0(crop_caption, "\n",
+                    "Large percentages can come from a small 2017 base, e.g. Kalahari: ",
+                    comma(round(kalahari$Crop17_ha)), " ha of cropland in 2017, ",
+                    sprintf("%+.0f", kalahari$CropPctChg17_25), "% by 2025.")
+)
+
+ggsave("outputs/figures/09_map_cropland_change_relative.png", m4,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m4
+```
+
+```{r}
+## Maps 3 and 4 (interactive): cropland change on selectable basemaps (tmap view mode)
+# The popups show both measures, so either map can be used to compare hectares with percent change.
+tmap_mode("view")
+
+crop_pts <- awf_pts %>%
+  mutate(AbsNet_kha = abs(CropNet17_25_ha) / 1000,
+         AbsPct     = abs(CropPctChg17_25),
+         across(c(CropNet17_25_ha, Crop17_ha, CropExp17_25_ha, CropLoss17_25_ha), ~ round(.x, 0)),
+         CropPctChg17_25 = round(CropPctChg17_25, 1))
+
+crop_popup <- c("Net change (ha)" = "CropNet17_25_ha", "Net change (% of 2017 cropland)" = "CropPctChg17_25",
+                "Cropland 2017 (ha)" = "Crop17_ha", "Gross expansion (ha)" = "CropExp17_25_ha",
+                "Gross loss (ha)" = "CropLoss17_25_ha")
+
+crop_view <- function(size_var, size_title, map_title) {
+  tm_shape(Africa.Country.Boundaries) +
+    tm_polygons(
+      fill = "lightyellow",
+      col = "black",
+      lwd = 1,
+      fill_alpha = 0.4,
+      id = "name"
+    ) +
+    tm_shape(arrange(crop_pts, desc(.data[[size_var]]))) +
+    tm_symbols(
+      size = size_var,
+      size.scale = tm_scale_continuous(values.scale = 2),
+      size.legend = tm_legend(title = size_title),
+      fill = "CropDirection",
+      fill.scale = tm_scale_categorical(values = c("Net contraction" = col_contract,
+                                                   "Net expansion" = col_expand),
+                                        value.neutral = "grey70"),   # neutral colour for the size legend
+      fill.legend = tm_legend(title = "Direction of net change"),
+      fill_alpha = 0.85,
+      col = "grey30",
+      id = "LandscapeName",
+      popup.vars = crop_popup
+    ) +
+    tm_title(map_title) +
+    tm_view(
+      basemap.server = c(
+        "Esri.WorldImagery",
+        "OpenStreetMap",
+        "Esri.WorldGrayCanvas",
+        "Esri.WorldTopoMap"
+      )
+    )
+}
+
+m3_view <- crop_view("AbsNet_kha", "Net change (thousand ha)", "Cropland change 2017–2025: absolute (hectares)")
+m4_view <- crop_view("AbsPct", "Net change (% of 2017 cropland)", "Cropland change 2017–2025: relative (%)")
+m3_view
+m4_view
 
 tmap_mode("plot")
 ```
