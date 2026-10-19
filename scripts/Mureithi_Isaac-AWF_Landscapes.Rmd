@@ -7,7 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.width = 10, fig.height = 8)
-knitr::opts_knit$set(root.dir = normalizePath(".."))  # project root
+if (!requireNamespace("here", quietly = TRUE)) install.packages("here")
+knitr::opts_knit$set(root.dir = here::here())  # project root, wherever the document is run from
 ```
 
 ```{r}
@@ -17,10 +18,11 @@ knitr::opts_knit$set(root.dir = normalizePath(".."))  # project root
 
 if (!require("pacman")) install.packages("pacman")
 
-pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox, readxl, rnaturalearth, rnaturalearthdata)
+pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, tmap, trend, slider, forcats, viridis, viridisLite, scales, hexbin, ggh4x, scico, ggridges, truncnorm, zoo, cowplot, ggplotify, png, magick, ggtext, grid, elevatr, whitebox, readxl, rnaturalearth, rnaturalearthdata, here)
 
 # DATA HANDLING#
 # readxl -> for reading the .xlsx landscape data
+# here -> project-relative file paths (here::here()) that work from any working directory
 # tidyverse -> for data manipulation, cleaning, and visualisation in a cohesive framework
 # forcats -> for managing factors (categorical variables)
 # slider -> for rolling or sliding window calculations
@@ -59,11 +61,11 @@ pacman::p_load(sf, terra, tidyverse, tidyterra, colorspace, ggrepel, patchwork, 
 
 ```{r}
 ## Data preparation
-dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
-dir.create("outputs/figures", showWarnings = FALSE, recursive = TRUE)
-dir.create("outputs/tables",  showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("data/processed"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("outputs/figures"), showWarnings = FALSE, recursive = TRUE)
+dir.create(here::here("outputs/tables"),  showWarnings = FALSE, recursive = TRUE)
 
-awf_raw <- read_excel("data/raw/awf_landscapes_raw.xlsx", sheet = "AWF_Landscapes")
+awf_raw <- read_excel(here::here("data/raw/awf_landscapes_raw.xlsx"), sheet = "AWF_Landscapes")
 
 awf <- awf_raw %>%
   mutate(
@@ -97,7 +99,7 @@ awf %>%
   pivot_longer(everything(), names_to = "metric", values_to = "value") %>%
   print()
 
-write_csv(awf, "data/processed/awf_landscapes_clean.csv")
+write_csv(awf, here::here("data/processed/awf_landscapes_clean.csv"))
 ```
 
 ```{r}
@@ -146,7 +148,7 @@ p1 <- ggplot(d1, aes(y = LabelShort)) +
   ) +
   theme_awf()
 
-ggsave("outputs/figures/01_protection_gap_dumbbell.png", p1,
+ggsave(here::here("outputs/figures/01_protection_gap_dumbbell.png"), p1,
        width = 10, height = 10, dpi = 300, bg = "white")
 p1
 ```
@@ -178,7 +180,7 @@ p2 <- ggplot(d2, aes(x = CropNet_kha, y = LabelShort, fill = CropDirection)) +
   ) +
   theme_awf()
 
-ggsave("outputs/figures/02_cropland_dynamics_bar.png", p2,
+ggsave(here::here("outputs/figures/02_cropland_dynamics_bar.png"), p2,
        width = 10, height = 10, dpi = 300, bg = "white")
 p2
 ```
@@ -223,7 +225,7 @@ p3 <- ggplot(awf, aes(x = Natural25_pct, y = PopGrowth_pct)) +
   ) +
   theme_awf()
 
-ggsave("outputs/figures/03_population_nature_scatter.png", p3,
+ggsave(here::here("outputs/figures/03_population_nature_scatter.png"), p3,
        width = 10, height = 8, dpi = 300, bg = "white")
 p3
 ```
@@ -260,7 +262,7 @@ p4 <- ggplot(awf, aes(x = CropPctChg17_25, y = AGB22_MgHa)) +
   ) +
   theme_awf()
 
-ggsave("outputs/figures/04_carbon_threat_quadrant.png", p4,
+ggsave(here::here("outputs/figures/04_carbon_threat_quadrant.png"), p4,
        width = 10, height = 8, dpi = 300, bg = "white")
 p4
 ```
@@ -277,7 +279,7 @@ p5 <- (p1 + p2) / (p3 + p4) +
                      plot.caption  = element_text(colour = "grey55", size = 11, hjust = 0))
   )
 
-ggsave("outputs/figures/05_composite_overview.png", p5,
+ggsave(here::here("outputs/figures/05_composite_overview.png"), p5,
        width = 20, height = 16, dpi = 300, bg = "white")
 p5
 ```
@@ -292,7 +294,7 @@ p5
 #     return ee.Feature(null, {LandscapeID: f.get('LandscapeID'), lon: c.get(0), lat: c.get(1)});
 #   });
 #   Export.table.toDrive({collection: pts, description: 'awf_landscape_centroids', fileFormat: 'CSV'});
-centroids <- read_csv("data/raw/awf_landscape_centroids.csv", show_col_types = FALSE) %>%
+centroids <- read_csv(here::here("data/raw/awf_landscape_centroids.csv"), show_col_types = FALSE) %>%
   select(LandscapeID, lon, lat, any_of("Confidence"))
 
 awf_pts <- awf %>%
@@ -404,7 +406,7 @@ m1 <- bubble_map(
                     "Point locations are approximate and will be replaced with landscape polygon centroids.")
 )
 
-ggsave("outputs/figures/06_map_landscape_locations.png", m1,
+ggsave(here::here("outputs/figures/06_map_landscape_locations.png"), m1,
        width = 14.5, height = 10, dpi = 300, bg = "white")
 m1
 ```
@@ -479,7 +481,7 @@ m2 <- bubble_map(
                     "Point locations are approximate and will be replaced with landscape polygon centroids.")
 )
 
-ggsave("outputs/figures/07_map_protection_gap.png", m2,
+ggsave(here::here("outputs/figures/07_map_protection_gap.png"), m2,
        width = 14.5, height = 10, dpi = 300, bg = "white")
 m2
 ```
@@ -569,7 +571,7 @@ m3 <- bubble_map(
   caption  = crop_caption
 )
 
-ggsave("outputs/figures/08_map_cropland_change_absolute.png", m3,
+ggsave(here::here("outputs/figures/08_map_cropland_change_absolute.png"), m3,
        width = 14.5, height = 10, dpi = 300, bg = "white")
 m3
 ```
@@ -600,7 +602,7 @@ m4 <- bubble_map(
                     sprintf("%+.0f", kalahari$CropPctChg17_25), "% by 2025.")
 )
 
-ggsave("outputs/figures/09_map_cropland_change_relative.png", m4,
+ggsave(here::here("outputs/figures/09_map_cropland_change_relative.png"), m4,
        width = 14.5, height = 10, dpi = 300, bg = "white")
 m4
 ```
@@ -659,6 +661,391 @@ m3_view <- crop_view("AbsNet_kha", "Net change (thousand ha)", "Cropland change 
 m4_view <- crop_view("AbsPct", "Net change (% of 2017 cropland)", "Cropland change 2017–2025: relative (%)")
 m3_view
 m4_view
+
+tmap_mode("plot")
+```
+
+```{r}
+## Map 5: Carbon stock x cropland threat (bubble size = total above-ground biomass, colour = quadrant)
+# The quadrants are the same as in plot 4: high/low = at or above/below the median across the 42 landscapes
+# for carbon (mean above-ground biomass density, Mg/ha) and for threat (relative cropland change 2017-2025, %).
+med_agb  <- median(awf$AGB22_MgHa, na.rm = TRUE)
+med_crop <- median(awf$CropPctChg17_25, na.rm = TRUE)
+
+quad_levels <- c("High carbon, high threat", "High carbon, low threat",
+                 "Low carbon, high threat", "Low carbon, low threat")
+quad_cols   <- c("High carbon, high threat" = "#8E2B1F", "High carbon, low threat" = "#2F7F5B",
+                 "Low carbon, high threat"  = "#F0B27A", "Low carbon, low threat"  = "#E3E3E3")
+
+classify_quadrant <- function(agb, crop) {
+  factor(case_when(agb >= med_agb & crop >= med_crop ~ quad_levels[1],
+                   agb >= med_agb & crop <  med_crop ~ quad_levels[2],
+                   agb <  med_agb & crop >= med_crop ~ quad_levels[3],
+                   TRUE                              ~ quad_levels[4]),
+         levels = quad_levels)
+}
+
+pts_carbon <- pts_laea %>%
+  mutate(Quadrant = classify_quadrant(AGB22_MgHa, CropPctChg17_25)) %>%
+  arrange(desc(AGB22_Mt))   # largest bubbles first, so small ones stay visible
+
+# Biomass totals are less certain where the valid-data coverage is low
+low_cov <- awf %>% filter(AGB22_cov_pct < 50) %>% arrange(AGB22_cov_pct)
+low_cov_txt <- paste0(low_cov$LandscapeName, " (", round(low_cov$AGB22_cov_pct), "%)", collapse = ", ")
+
+m5 <- bubble_map(
+  pts = pts_carbon,
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = AGB22_Mt, fill = Quadrant), shape = 21,
+               colour = "grey30", alpha = 0.9, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_carbon$AGB22_Mt)),
+               breaks = c(10, 100, 500, 1000, 2000), labels = comma,
+               name = "Total above-ground biomass (Mt)"),
+    scale_fill_manual(values = quad_cols, name = "Biomass density × cropland change"),
+    guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+           fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                               override.aes = list(size = 5)))
+  ),
+  title    = "Carbon stock and cropland threat",
+  subtitle = paste0("Bubble area is proportional to total above-ground biomass; ",
+                    "colour combines biomass density and cropland change, as in plot 4"),
+  caption  = paste0("Sources: ESA CCI Biomass v6 (2022, 100 m); Esri/Impact Observatory LULC 2017 and 2025; Natural Earth. ",
+                    "High/low = at or above/below the median across landscapes (biomass density ",
+                    round(med_agb), " Mg/ha; cropland change ", sprintf("%+.0f", med_crop), "%).\n",
+                    "Valid biomass coverage is below 50% in ", nrow(low_cov), " landscapes (", low_cov_txt,
+                    "), so their totals are less certain. ",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave(here::here("outputs/figures/10_map_carbon_threat.png"), m5,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m5
+```
+
+```{r}
+## Map 5 (interactive): carbon stock x cropland threat on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+m5_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts %>%
+             mutate(Quadrant = classify_quadrant(AGB22_MgHa, CropPctChg17_25),
+                    across(c(AGB22_MgHa, AGB22_Mt, AGB22_cov_pct, CropPctChg17_25), ~ round(.x, 1))) %>%
+             arrange(desc(AGB22_Mt))) +
+  tm_symbols(
+    size = "AGB22_Mt",
+    size.scale = tm_scale_continuous_sqrt(values.scale = 2),
+    size.legend = tm_legend(title = "Total AGB (Mt)"),
+    fill = "Quadrant",
+    fill.scale = tm_scale_categorical(values = quad_cols, value.neutral = "grey70"),
+    fill.legend = tm_legend(title = "Biomass density x cropland change"),
+    fill_alpha = 0.85,
+    col = "grey30",
+    id = "LandscapeName",
+    popup.vars = c("Biomass density (Mg/ha)" = "AGB22_MgHa", "Total biomass (Mt)" = "AGB22_Mt",
+                   "Cropland change (%)" = "CropPctChg17_25", "Valid biomass coverage (%)" = "AGB22_cov_pct")
+  ) +
+  tm_title("Carbon stock and cropland threat") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m5_view
+
+tmap_mode("plot")
+```
+
+```{r}
+## Map 6: Demographic pressure (bubble size = population density 2030, colour = projected growth 2030-2050)
+# SSP2 projections. Density and growth are only weakly related, so size and colour tell different stories:
+# many of the fastest-growing landscapes start from a very low density.
+growth_breaks <- c(-Inf, 10, 20, 30, 40, Inf)
+growth_labels <- c("< 10", "10 to 20", "20 to 30", "30 to 40", "≥ 40")
+growth_cols   <- colorspace::sequential_hcl(6, palette = "Purples 3", rev = TRUE)[-1]
+
+pts_pop <- pts_laea %>%
+  mutate(GrowthClass = cut(PopGrowth_pct, breaks = growth_breaks, labels = growth_labels, right = FALSE)) %>%
+  arrange(desc(PopDens30))
+
+fastest <- awf %>% slice_max(PopGrowth_pct, n = 1)
+
+m6 <- bubble_map(
+  pts = pts_pop,
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = PopDens30, fill = GrowthClass), shape = 21,
+               colour = "grey30", alpha = 0.9, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_pop$PopDens30)),
+               breaks = c(1, 10, 50, 100, 400), labels = comma,
+               name = "Population density, 2030 (people per km²)"),
+    scale_fill_manual(values = growth_cols, drop = FALSE,
+                      name = "Projected population growth, 2030–2050 (%)"),
+    guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+           fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                               override.aes = list(size = 5)))
+  ),
+  title    = "Demographic pressure on the priority landscapes",
+  subtitle = paste0("SSP2 projections: bubble area is proportional to population density in 2030; ",
+                    "colour shows projected growth to 2050"),
+  caption  = paste0("Sources: Wang, Meng & Long SSP2 global ~1 km population projections; Natural Earth. ",
+                    "Density = projected 2030 population divided by the mapped landscape area; ",
+                    "growth = (2050 − 2030) / 2030.\n",
+                    "High growth often starts from a low base, e.g. ", fastest$LandscapeName,
+                    ": ", round(fastest$PopDens30, 1), " people per km² in 2030, ",
+                    sprintf("%+.0f", fastest$PopGrowth_pct), "% by 2050. ",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave(here::here("outputs/figures/11_map_population_pressure.png"), m6,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m6
+```
+
+```{r}
+## Map 6 (interactive): demographic pressure on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+m6_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts %>%
+             mutate(GrowthClass = cut(PopGrowth_pct, breaks = growth_breaks, labels = growth_labels,
+                                      right = FALSE),
+                    across(c(PopDens30, PopGrowth_pct, Natural25_pct), ~ round(.x, 1)),
+                    across(c(Pop30_SSP2, Pop50_SSP2), ~ round(.x, 0))) %>%
+             arrange(desc(PopDens30))) +
+  tm_symbols(
+    size = "PopDens30",
+    size.scale = tm_scale_continuous_sqrt(values.scale = 2),
+    size.legend = tm_legend(title = "Density 2030 (people per km²)"),
+    fill = "GrowthClass",
+    fill.scale = tm_scale_categorical(values = growth_cols, value.neutral = "grey70"),
+    fill.legend = tm_legend(title = "Growth 2030–2050 (%)"),
+    fill_alpha = 0.85,
+    col = "grey30",
+    id = "LandscapeName",
+    popup.vars = c("Density 2030 (people per km²)" = "PopDens30", "Growth 2030–2050 (%)" = "PopGrowth_pct",
+                   "Population 2030" = "Pop30_SSP2", "Population 2050" = "Pop50_SSP2",
+                   "Natural cover 2025 (%)" = "Natural25_pct")
+  ) +
+  tm_title("Demographic pressure on the priority landscapes") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m6_view
+
+tmap_mode("plot")
+```
+
+```{r}
+## Map 7: Land conversion in 2025 (bubble size = converted area, colour = converted share of the landscape)
+# Converted = cropland + built-up; natural = all other valid classes (Esri/Impact Observatory 2025 LULC).
+# Size shows the footprint in hectares, colour the share of the landscape, so a large landscape with a
+# modest share and a small, heavily converted landscape can both be seen.
+conv_breaks <- c(-Inf, 1, 5, 15, 30, Inf)
+conv_labels <- c("< 1", "1 to 5", "5 to 15", "15 to 30", "≥ 30")
+conv_cols   <- scales::pal_seq_gradient("#F7DCCF", "#7A1F14")(seq(0, 1, length.out = 5))
+
+pts_conv <- pts_laea %>%
+  mutate(Converted_pct = Crop25_pct + Built25_pct,
+         Converted_kha = (Crop25_ha + Built25_ha) / 1000,
+         ConvClass     = cut(Converted_pct, breaks = conv_breaks, labels = conv_labels, right = FALSE)) %>%
+  arrange(desc(Converted_kha))   # largest bubbles first, so small ones stay visible
+
+top_built <- awf %>% slice_max(Built25_pct, n = 3)
+built_txt <- paste0(top_built$LandscapeName, " (", sprintf("%.1f", top_built$Built25_pct), "%)", collapse = ", ")
+
+m7 <- bubble_map(
+  pts = pts_conv,
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = Converted_kha, fill = ConvClass), shape = 21,
+               colour = "grey30", alpha = 0.9, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_conv$Converted_kha)),
+               breaks = c(10, 100, 500, 2000), labels = comma,
+               name = "Converted area (thousand hectares)"),
+    scale_fill_manual(values = conv_cols, drop = FALSE,
+                      name = "Converted share of landscape, 2025 (%)"),
+    guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+           fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                               override.aes = list(size = 5)))
+  ),
+  title    = "Land conversion in the priority landscapes, 2025",
+  subtitle = paste0("Bubble area is proportional to the area converted to cropland or built-up land; ",
+                    "colour shows its share of the landscape"),
+  caption  = paste0("Sources: Esri/Impact Observatory Sentinel-2 10 m LULC (2025); Natural Earth. ",
+                    "Converted = cropland + built-up, as a share of the valid classified area.\n",
+                    "Highest built-up shares: ", built_txt, ". ",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave(here::here("outputs/figures/12_map_land_conversion.png"), m7,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m7
+```
+
+```{r}
+## Map 7 (interactive): land conversion on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+m7_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts %>%
+             mutate(Converted_pct = Crop25_pct + Built25_pct,
+                    Converted_ha  = Crop25_ha + Built25_ha,
+                    ConvClass     = cut(Converted_pct, breaks = conv_breaks, labels = conv_labels,
+                                        right = FALSE),
+                    across(c(Converted_pct, Natural25_pct, Crop25_pct, Built25_pct), ~ round(.x, 1)),
+                    across(c(Converted_ha, Crop25_ha, Built25_ha), ~ round(.x, 0))) %>%
+             arrange(desc(Converted_ha))) +
+  tm_symbols(
+    size = "Converted_ha",
+    size.scale = tm_scale_continuous_sqrt(values.scale = 2),
+    size.legend = tm_legend(title = "Converted area (ha)"),
+    fill = "ConvClass",
+    fill.scale = tm_scale_categorical(values = conv_cols, value.neutral = "grey70"),
+    fill.legend = tm_legend(title = "Converted share (%)"),
+    fill_alpha = 0.85,
+    col = "grey30",
+    id = "LandscapeName",
+    popup.vars = c("Converted share (%)" = "Converted_pct", "Natural cover (%)" = "Natural25_pct",
+                   "Cropland (%)" = "Crop25_pct", "Built-up (%)" = "Built25_pct",
+                   "Converted area (ha)" = "Converted_ha", "Cropland (ha)" = "Crop25_ha",
+                   "Built-up (ha)" = "Built25_ha")
+  ) +
+  tm_title("Land conversion in the priority landscapes, 2025") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m7_view
+
+tmap_mode("plot")
+```
+
+```{r}
+## Map 8: Rainfall x biomass (bubble size = above-ground biomass density, colour = mean annual rainfall)
+# Biomass density rises with rainfall, so the informative landscapes are those that depart from the pattern
+# (a large bubble in a drier class, or a small bubble in a wet one).
+rain_breaks <- c(-Inf, 500, 750, 1000, 1250, 1750, Inf)
+rain_labels <- c("< 500", "500 to 750", "750 to 1,000", "1,000 to 1,250", "1,250 to 1,750", "≥ 1,750")
+rain_cols   <- colorspace::sequential_hcl(7, palette = "Blues 3", rev = TRUE)[-1]
+
+pts_rain <- pts_laea %>%
+  mutate(RainClass = cut(Rain_91_20_mm, breaks = rain_breaks, labels = rain_labels, right = FALSE)) %>%
+  arrange(desc(AGB22_MgHa))
+
+rho <- cor(awf$Rain_91_20_mm, awf$AGB22_MgHa, method = "spearman", use = "complete.obs")
+
+# Biomass is less certain where the valid-data coverage is low (same note as Map 5)
+low_cov <- awf %>% filter(AGB22_cov_pct < 50) %>% arrange(AGB22_cov_pct)
+low_cov_txt <- paste0(low_cov$LandscapeName, " (", round(low_cov$AGB22_cov_pct), "%)", collapse = ", ")
+
+m8 <- bubble_map(
+  pts = pts_rain,
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = AGB22_MgHa, fill = RainClass), shape = 21,
+               colour = "grey30", alpha = 0.9, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_rain$AGB22_MgHa)),
+               breaks = c(10, 25, 50, 100, 250, 400), labels = comma,
+               name = "Above-ground biomass density (Mg/ha)"),
+    scale_fill_manual(values = rain_cols, drop = FALSE,
+                      name = "Mean annual rainfall, 1991–2020 (mm)"),
+    guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+           fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                               override.aes = list(size = 5)))
+  ),
+  title    = "Rainfall and above-ground biomass in the priority landscapes",
+  subtitle = paste0("Bubble area is proportional to mean above-ground biomass density (2022); ",
+                    "colour shows mean annual rainfall"),
+  caption  = paste0("Sources: CHIRPS Daily (~5.6 km), 1991–2020 mean; ESA CCI Biomass v6 (2022, 100 m); Natural Earth. ",
+                    "Rank correlation between rainfall and biomass density across the landscapes: ",
+                    sprintf("%.2f", rho), ".\n",
+                    "Valid biomass coverage is below 50% in ", nrow(low_cov), " landscapes (", low_cov_txt,
+                    "), so their biomass is less certain. ",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave(here::here("outputs/figures/13_map_rainfall_biomass.png"), m8,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m8
+```
+
+```{r}
+## Map 8 (interactive): rainfall x biomass on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+m8_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts %>%
+             mutate(RainClass = cut(Rain_91_20_mm, breaks = rain_breaks, labels = rain_labels, right = FALSE),
+                    across(c(Rain_91_20_mm, AGB22_MgHa, AGB22_Mt, AGB22_cov_pct), ~ round(.x, 1))) %>%
+             arrange(desc(AGB22_MgHa))) +
+  tm_symbols(
+    size = "AGB22_MgHa",
+    size.scale = tm_scale_continuous_sqrt(values.scale = 2),
+    size.legend = tm_legend(title = "Biomass density (Mg/ha)"),
+    fill = "RainClass",
+    fill.scale = tm_scale_categorical(values = rain_cols, value.neutral = "grey70"),
+    fill.legend = tm_legend(title = "Rainfall 1991–2020 (mm)"),
+    fill_alpha = 0.85,
+    col = "grey30",
+    id = "LandscapeName",
+    popup.vars = c("Mean annual rainfall (mm)" = "Rain_91_20_mm", "Biomass density (Mg/ha)" = "AGB22_MgHa",
+                   "Total biomass (Mt)" = "AGB22_Mt", "Valid biomass coverage (%)" = "AGB22_cov_pct")
+  ) +
+  tm_title("Rainfall and above-ground biomass in the priority landscapes") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m8_view
 
 tmap_mode("plot")
 ```
