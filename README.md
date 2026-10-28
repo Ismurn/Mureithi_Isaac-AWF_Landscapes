@@ -6,7 +6,7 @@ This repository contains data and code for analysing 42 African Wildlife Foundat
 Research Fellow, Oppenheimer Programme in African Landscape Systems (OPALS)
 University of Exeter & African Wildlife Foundation
 
-Use of this code is licensed under GPL v3.
+Use of this code is licensed under [![Licence: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0).
 
 ## Project overview
 
