@@ -36,6 +36,9 @@ The project combines satellite-derived land cover change (Esri/Impact Observator
 | `outputs/figures/11_map_population_pressure.png` | Map 6: demographic pressure (bubble area = SSP2 population density in 2030, colour = projected growth 2030–2050). |
 | `outputs/figures/12_map_land_conversion.png` | Map 7: land conversion in 2025 (bubble area = cropland + built-up area, colour = its share of the landscape). |
 | `outputs/figures/13_map_rainfall_biomass.png` | Map 8: rainfall × biomass (bubble area = above-ground biomass density, colour = mean annual rainfall 1991–2020). |
+| `outputs/figures/14_rainfall_biomass_scatter.png` | Plot 6: power-law trend of biomass density on rainfall (log-log), points coloured by observed / expected biomass density. |
+| `outputs/figures/15_map_biomass_vs_rainfall.png` | Map 9: biomass relative to the rainfall trend (bubble area = absolute difference in total biomass, colour = observed / expected density). |
+| `outputs/figures/16_map_indicator_overlap.png` | Map 10: overlap of three indicators (KBA share, biomass density, cropland change; colour = number at or above the median, bubble area = landscape area). |
 
 `outputs/tables/` is reserved for summary tables.
 

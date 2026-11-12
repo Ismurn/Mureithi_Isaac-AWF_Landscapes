@@ -1049,3 +1049,269 @@ m8_view
 
 tmap_mode("plot")
 ```
+
+```{r}
+## Plot 6: Rainfall-biomass relationship (power-law trend) and departures from it
+# Trend: biomass density ~ rainfall^b, fitted on log-log axes to the landscapes with >= 50% valid biomass
+# coverage. A log-linear curve and a smoother fit about as well (R2 0.70-0.73) but the log-linear curve
+# over-predicts the wettest landscapes. Annual rainfall ignores seasonality, soils, fire and elevation, so
+# departures from the trend are prompts for a closer look, not evidence of degradation.
+bio_breaks <- c(0, 0.5, 0.8, 1.25, 2, Inf)
+bio_labels <- c("< 0.5", "0.5 to 0.8", "0.8 to 1.25", "1.25 to 2", "≥ 2")
+bio_na     <- "Not assessed (coverage < 50%)"
+bio_cols   <- c(setNames(c("#A6611A", "#DFC27D", "#F5F5F5", "#80CDC1", "#018571"), bio_labels),
+                setNames("#9E9E9E", bio_na))
+
+awf_rb <- awf %>% mutate(Assessed = AGB22_cov_pct >= 50)
+
+rb_fit <- lm(log(AGB22_MgHa) ~ log(Rain_91_20_mm), data = filter(awf_rb, Assessed))
+rb_exp <- unname(coef(rb_fit)[2])            # biomass density ~ rainfall^rb_exp
+rb_ci  <- unname(confint(rb_fit)[2, ])
+rb_r2  <- summary(rb_fit)$r.squared
+
+awf_rb <- awf_rb %>%
+  mutate(Expected_MgHa = exp(predict(rb_fit, newdata = awf_rb)),
+         BioRatio      = if_else(Assessed, AGB22_MgHa / Expected_MgHa, NA_real_),
+         BioDiff_Mt    = if_else(Assessed, (AGB22_MgHa - Expected_MgHa) * Km_sq * 100 / 1e6, NA_real_),
+         BioClass      = factor(if_else(Assessed,
+                                        as.character(cut(BioRatio, breaks = bio_breaks, labels = bio_labels,
+                                                         right = FALSE)),
+                                        bio_na),
+                                levels = names(bio_cols)))
+
+not_assessed <- awf_rb %>% filter(!Assessed) %>% arrange(AGB22_cov_pct)
+not_assessed_txt <- paste0(not_assessed$LandscapeName, " (", round(not_assessed$AGB22_cov_pct), "%)", collapse = ", ")
+
+# draw the trend only over the rainfall range that was used to fit it
+rb_range <- range(awf_rb$Rain_91_20_mm[awf_rb$Assessed])
+rb_curve <- tibble(Rain_91_20_mm = seq(rb_range[1], rb_range[2], length.out = 200)) %>%
+  mutate(Expected_MgHa = exp(predict(rb_fit, newdata = .)))
+
+p6 <- ggplot(awf_rb, aes(x = Rain_91_20_mm, y = AGB22_MgHa)) +
+  geom_ribbon(data = rb_curve, aes(x = Rain_91_20_mm, ymin = Expected_MgHa * 0.5, ymax = Expected_MgHa * 2),
+              inherit.aes = FALSE, fill = "grey90") +
+  geom_line(data = rb_curve, aes(y = Expected_MgHa), colour = "grey30", linewidth = 0.7) +
+  geom_point(aes(fill = BioClass), shape = 21, size = 3.4, colour = "grey30", alpha = 0.95) +
+  geom_text_repel(aes(label = LabelShort), size = 2.7, colour = "grey20", max.overlaps = Inf, seed = 42,
+                  segment.colour = "grey70", segment.size = 0.25, box.padding = 0.35, point.padding = 0.2,
+                  min.segment.length = 0, force = 2, max.time = 5, max.iter = 30000) +
+  scale_x_log10(breaks = c(200, 500, 1000, 2000), labels = comma) +
+  scale_y_log10(breaks = c(10, 25, 50, 100, 250, 400), labels = comma) +
+  scale_fill_manual(values = bio_cols, drop = FALSE, name = "Observed / expected biomass density") +
+  coord_cartesian(ylim = c(6, 500)) +
+  guides(fill = guide_legend(nrow = 1, title.position = "top", override.aes = list(size = 4))) +
+  labs(
+    title    = "Rainfall and above-ground biomass density",
+    subtitle = sprintf(paste0("Power-law trend: biomass density ∝ rainfall^%.1f (95%% CI %.1f–%.1f), R² = %.2f, ",
+                              "%d landscapes; shaded band = within a factor of two of the trend"),
+                       rb_exp, rb_ci[1], rb_ci[2], rb_r2, sum(awf_rb$Assessed)),
+    x = "Mean annual rainfall, 1991–2020 (mm; log scale)",
+    y = "Mean above-ground biomass density, 2022 (Mg/ha; log scale)",
+    caption = paste0("Sources: CHIRPS Daily (~5.6 km); ESA CCI Biomass v6 (2022, 100 m). ",
+                     "Annual rainfall ignores seasonality, soils, fire and elevation, so departures are prompts for a closer look.\n",
+                     "Not assessed (valid biomass coverage below 50%, excluded from the fit): ", not_assessed_txt, ".")
+  ) +
+  theme_awf()
+
+ggsave(here::here("outputs/figures/14_rainfall_biomass_scatter.png"), p6,
+       width = 10, height = 8, dpi = 300, bg = "white")
+p6
+```
+
+```{r}
+## Map 9: Biomass relative to the rainfall trend (bubble size = absolute difference in total biomass, colour = observed / expected density)
+# Size shows how many Mt the landscape sits above or below the rainfall trend of plot 6, colour shows the
+# relative departure (observed / expected biomass density), so a big landscape with a modest ratio and a small
+# landscape with an extreme ratio can both be seen. Landscapes with biomass coverage below 50% are not assessed
+# and drawn at minimum size.
+pts_bio <- pts_laea %>%
+  left_join(select(awf_rb, LandscapeID, Assessed, Expected_MgHa, BioRatio, BioDiff_Mt, BioClass),
+            by = "LandscapeID") %>%
+  mutate(AbsDiff_Mt = coalesce(abs(BioDiff_Mt), 0)) %>%
+  arrange(desc(AbsDiff_Mt))   # largest bubbles first, so small ones stay visible
+
+m9 <- bubble_map(
+  pts = pts_bio,
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = AbsDiff_Mt, fill = BioClass), shape = 21,
+               colour = "grey30", alpha = 0.9, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_bio$AbsDiff_Mt)),
+               breaks = c(10, 50, 100, 500, 1000), labels = comma,
+               name = "Difference from the rainfall trend (Mt, absolute)"),
+    scale_fill_manual(values = bio_cols, drop = FALSE,
+                      name = "Observed / expected biomass density"),
+    guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+           fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                               override.aes = list(size = 5)))
+  ),
+  title    = "Biomass relative to the rainfall trend",
+  subtitle = paste0("Bubble area is proportional to the absolute difference between observed and rainfall-expected ",
+                    "total biomass; colour shows observed / expected biomass density"),
+  caption  = paste0("Sources: CHIRPS Daily (~5.6 km), 1991–2020; ESA CCI Biomass v6 (2022, 100 m); Natural Earth. ",
+                    "Expected = power-law trend of biomass density on annual rainfall (plot 6); total = density × landscape area.\n",
+                    "Brown = less biomass than rainfall alone suggests, teal = more. Rainfall ignores seasonality, soils, fire and elevation, ",
+                    "so read departures as prompts for a closer look. Not assessed (biomass coverage below 50%): ",
+                    not_assessed_txt, ".\n",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave(here::here("outputs/figures/15_map_biomass_vs_rainfall.png"), m9,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m9
+```
+
+```{r}
+## Map 9 (interactive): biomass relative to the rainfall trend on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+m9_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts %>%
+             left_join(select(awf_rb, LandscapeID, Expected_MgHa, BioRatio, BioDiff_Mt, BioClass),
+                       by = "LandscapeID") %>%
+             mutate(AbsDiff_Mt = coalesce(abs(BioDiff_Mt), 0),
+                    across(c(Rain_91_20_mm, AGB22_MgHa, Expected_MgHa, AGB22_cov_pct), ~ round(.x, 1)),
+                    BioRatio = round(BioRatio, 2),
+                    BioDiff_Mt = round(BioDiff_Mt, 0)) %>%
+             arrange(desc(AbsDiff_Mt))) +
+  tm_symbols(
+    size = "AbsDiff_Mt",
+    size.scale = tm_scale_continuous_sqrt(values.scale = 2),
+    size.legend = tm_legend(title = "Difference from trend (Mt)"),
+    fill = "BioClass",
+    fill.scale = tm_scale_categorical(values = bio_cols, value.neutral = "grey70"),
+    fill.legend = tm_legend(title = "Observed / expected"),
+    fill_alpha = 0.85,
+    col = "grey30",
+    id = "LandscapeName",
+    popup.vars = c("Rainfall (mm)" = "Rain_91_20_mm", "Biomass density (Mg/ha)" = "AGB22_MgHa",
+                   "Rainfall-expected density (Mg/ha)" = "Expected_MgHa", "Observed / expected" = "BioRatio",
+                   "Difference in total biomass (Mt)" = "BioDiff_Mt", "Valid biomass coverage (%)" = "AGB22_cov_pct")
+  ) +
+  tm_title("Biomass relative to the rainfall trend") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m9_view
+
+tmap_mode("plot")
+```
+
+```{r}
+## Map 10: Overlap of three indicators (colour = number of indicators at or above the median, bubble size = landscape area)
+# Biodiversity value = KBA share of the landscape (%), carbon = above-ground biomass density (Mg/ha),
+# threat = relative cropland change 2017-2025 (%). High = at or above the median across the 42 landscapes,
+# as in plot 4 and Map 5. This is a descriptive overlap, not a ranking or a prioritisation.
+med_kba  <- median(awf$KBA_pct, na.rm = TRUE)
+med_agb  <- median(awf$AGB22_MgHa, na.rm = TRUE)
+med_crop <- median(awf$CropPctChg17_25, na.rm = TRUE)
+
+overlap_levels <- c("0", "1", "2", "All 3")
+overlap_cols   <- setNames(viridisLite::magma(4, begin = 0.15, end = 0.9, direction = -1), overlap_levels)
+
+flag_indicators <- function(d) {
+  d %>%
+    mutate(HighKBA    = KBA_pct >= med_kba,
+           HighCarbon = AGB22_MgHa >= med_agb,
+           HighThreat = CropPctChg17_25 >= med_crop,
+           NHigh      = HighKBA + HighCarbon + HighThreat,
+           OverlapClass = factor(overlap_levels[NHigh + 1], levels = overlap_levels),
+           Indicators = paste0(if_else(HighKBA, "biodiversity, ", ""), if_else(HighCarbon, "carbon, ", ""),
+                               if_else(HighThreat, "threat, ", "")),
+           Indicators = if_else(NHigh == 0, "none", sub(", $", "", Indicators)))
+}
+
+pts_overlap <- pts_laea %>% flag_indicators() %>% arrange(desc(Km_sq))
+
+all_three_txt <- pts_overlap %>% filter(NHigh == 3) %>% arrange(LandscapeName) %>% pull(LandscapeName) %>%
+  paste(collapse = ", ")
+rho_ind <- cor(select(awf, KBA_pct, AGB22_MgHa, CropPctChg17_25), method = "spearman")
+rho_max <- max(abs(rho_ind[upper.tri(rho_ind)]))
+
+m10 <- bubble_map(
+  pts = pts_overlap,
+  point_layer = function(d) {
+    geom_point(data = d, aes(X, Y, size = Km_sq, fill = OverlapClass), shape = 21,
+               colour = "grey30", alpha = 0.9, stroke = 0.3)
+  },
+  scales = list(
+    scale_size(range = c(1.2, 13), limits = c(0, max(pts_overlap$Km_sq)),
+               breaks = c(10000, 50000, 100000, 200000), labels = comma,
+               name = "Landscape area (km²)"),
+    scale_fill_manual(values = overlap_cols, drop = FALSE,
+                      name = "Indicators at or above the median (of 3)"),
+    guides(size = guide_legend(order = 1, override.aes = list(fill = "grey70")),
+           fill = guide_legend(order = 2, nrow = 1, title.position = "top",
+                               override.aes = list(size = 5)))
+  ),
+  title    = "Overlap of biodiversity value, carbon stock and cropland threat",
+  subtitle = paste0("Colour counts how many of three indicators are at or above the median across landscapes: ",
+                    "KBA share, biomass density, cropland change"),
+  caption  = paste0("Sources: AWF Africa_KBA polygon asset; ESA CCI Biomass v6 (2022); Esri/Impact Observatory LULC 2017 and 2025; Natural Earth. ",
+                    "Medians: KBA share ", round(med_kba), "%, biomass density ", round(med_agb),
+                    " Mg/ha, cropland change ", sprintf("%+.0f", med_crop), "%.\n",
+                    "All three: ", all_three_txt, ". The indicators are almost uncorrelated across landscapes (rank correlations at most ",
+                    sprintf("%.2f", rho_max), "), so each overlap is informative; this is a descriptive overlap, not a ranking.\n",
+                    "Point locations are approximate and will be replaced with landscape polygon centroids.")
+)
+
+ggsave(here::here("outputs/figures/16_map_indicator_overlap.png"), m10,
+       width = 14.5, height = 10, dpi = 300, bg = "white")
+m10
+```
+
+```{r}
+## Map 10 (interactive): overlap of three indicators on selectable basemaps (tmap view mode)
+tmap_mode("view")
+
+m10_view <- tm_shape(Africa.Country.Boundaries) +
+  tm_polygons(
+    fill = "lightyellow",
+    col = "black",
+    lwd = 1,
+    fill_alpha = 0.4,
+    id = "name"
+  ) +
+  tm_shape(awf_pts %>%
+             flag_indicators() %>%
+             mutate(across(c(KBA_pct, AGB22_MgHa, CropPctChg17_25), ~ round(.x, 1))) %>%
+             arrange(desc(Km_sq))) +
+  tm_symbols(
+    size = "Km_sq",
+    size.scale = tm_scale_continuous_sqrt(values.scale = 2),
+    size.legend = tm_legend(title = "Landscape area (km²)"),
+    fill = "OverlapClass",
+    fill.scale = tm_scale_categorical(values = overlap_cols, value.neutral = "grey70"),
+    fill.legend = tm_legend(title = "Indicators at or above median"),
+    fill_alpha = 0.85,
+    col = "grey30",
+    id = "LandscapeName",
+    popup.vars = c("Indicators at or above median" = "Indicators", "KBA share (%)" = "KBA_pct",
+                   "Biomass density (Mg/ha)" = "AGB22_MgHa", "Cropland change (%)" = "CropPctChg17_25")
+  ) +
+  tm_title("Overlap of biodiversity value, carbon stock and cropland threat") +
+  tm_view(
+    basemap.server = c(
+      "Esri.WorldImagery",
+      "OpenStreetMap",
+      "Esri.WorldGrayCanvas",
+      "Esri.WorldTopoMap"
+    )
+  )
+m10_view
+
+tmap_mode("plot")
+```
